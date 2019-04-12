@@ -8,17 +8,27 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import {VersionMap, CRDTChange, CRDTModel} from "./crdt.js";
+import {VersionMap, CRDTChange, CRDTModel, Data, Operation} from "./crdt.js";
 
 type RawCollection<T> = Set<T>;
 
+type Collection = "Collection";
+
 type CollectionValue<T> = {value: T, clock: VersionMap};
-type CollectionData<T> = {values: Set<{value: T, clock: VersionMap}>, version: VersionMap};
+
+interface CollectionData<T> extends Data<Collection> {
+  values: Set<{value: T, clock: VersionMap}>;
+  version: VersionMap;
+}
 
 enum CollectionOpTypes {Add, Remove}
-type CollectionOperation<T> = {type: CollectionOpTypes.Add, added: CollectionValue<T>} |
+type CollectionOperationImpl<T> = {type: CollectionOpTypes.Add, added: CollectionValue<T>} |
                               {type: CollectionOpTypes.Remove, removed: T};
 
-type CollectionChange<T> = CRDTChange<CollectionOperation<T>, CollectionData<T>>;
+interface CollectionOperation<T> extends Operation<Collection> {
+  operation: CollectionOperationImpl<T>;
+}
 
-type CollectionModel<T> = CRDTModel<CollectionOperation<T>, CollectionData<T>, RawCollection<T>>;
+interface CollectionChange<T> extends CRDTChange<Collection> {}
+
+interface CollectionModel<T> extends CRDTModel<Collection> {}

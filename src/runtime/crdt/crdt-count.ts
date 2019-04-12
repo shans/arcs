@@ -8,25 +8,48 @@
  * http://polymer.github.io/PATENTS.txt
  */
 
-import {VersionMap, CRDTChange, CRDTModel, CRDTError, ChangeType} from "./crdt.js";
+import {VersionMap, CRDTChange, CRDTModel, CRDTError, ChangeType, Operation, Data} from "./crdt.js";
 
 type RawCount = number;
 
-type CountData = {values: Map<string, number>, version: VersionMap};
+type Count = "Count";
+
+interface CountData extends Data<Count> {
+  values: Map<string, number>; 
+  version: VersionMap;
+}
 
 type VersionInfo = {from: number, to: number};
 
 export enum CountOpTypes {Increment, MultiIncrement}
-export type CountOperation = {type: CountOpTypes.MultiIncrement, value: number, actor: string, version: VersionInfo} | 
-                             {type: CountOpTypes.Increment, actor: string, version: VersionInfo};
+type CountOperationImpl = {type: CountOpTypes.MultiIncrement, value: number, actor: string, version: VersionInfo} | 
+{type: CountOpTypes.Increment, actor: string, version: VersionInfo};
 
-type CountChange = CRDTChange<CountOperation, CountData>;
-type CountModel = CRDTModel<CountOperation, CountData, RawCount>;
+export class CountOperation implements Operation<Count> {
+  operation: CountOperationImpl;
+
+  constructor(operation: CountOperationImpl) {
+    this.operation = operation;
+  }
+  static newMultiIncrement(value: number, actor: string, from: number, to: number) {
+    return new CountOperation({type: CountOpTypes.MultiIncrement, value, actor, version: {from, to}}); 
+  }
+
+  static newIncrement(actor: string, from: number) {
+    return new CountOperation({type: CountOpTypes.Increment, actor, version: {from, to: from + 1}});
+  }
+}
+
+interface CountChange extends CRDTChange<Count> {
+  change: {changeType: ChangeType.Operations, operations: CountOperation[]} | {changeType: ChangeType.Model, modelPostChange: CountData};
+}
+
+interface CountModel extends CRDTModel<Count> {}
 
 export class CRDTCount implements CountModel {
   private model: CountData = {values: new Map(), version: new Map()};
 
-  merge(other: CountModel): {modelChange: CountChange, otherChange: CountChange} {
+  merge(other: CRDTCount): {modelChange: CountChange, otherChange: CountChange} {
     const otherChanges: CountOperation[] = [];
     const thisChanges: CountOperation[] = [];
 
@@ -41,14 +64,12 @@ export class CRDTCount implements CountModel {
         if (otherVersion >= thisVersion) {
           throw new CRDTError('Divergent versions encountered when merging CRDTCount models');
         }
-        otherChanges.push({type: CountOpTypes.MultiIncrement, value: thisValue - otherValue, actor: key,
-                           version: {from: otherVersion, to: thisVersion}});
+        otherChanges.push(CountOperation.newMultiIncrement(thisValue - otherValue, key, otherVersion, thisVersion));
       } else if (otherValue > thisValue) {
         if (thisVersion >= otherVersion) {
           throw new CRDTError('Divergent versions encountered when merging CRDTCount models');
         }
-        thisChanges.push({type: CountOpTypes.MultiIncrement, value: otherValue - thisValue, actor: key,
-                          version: {from: thisVersion, to: otherVersion}});
+        thisChanges.push(CountOperation.newMultiIncrement(otherValue - thisValue, key, thisVersion, otherVersion));
         this.model.values.set(key, otherValue);
         this.model.version.set(key, otherVersion);
       }
@@ -61,36 +82,47 @@ export class CRDTCount implements CountModel {
       if (otherRaw.version.has(key)) {
         throw new CRDTError(`CRDTCount model has version but no value for key ${key}`);
       }
-      otherChanges.push({type: CountOpTypes.MultiIncrement, value: this.model.values.get(key), actor: key,
-                         version: {from: 0, to: this.model.version.get(key)}});
+      otherChanges.push({operation: {type: CountOpTypes.MultiIncrement, value: this.model.values.get(key), actor: key,
+                                     version: {from: 0, to: this.model.version.get(key)}}});
     }
 
-    return {modelChange: {changeType: ChangeType.Operations, operations: thisChanges}, otherChange: {changeType: ChangeType.Operations, operations: otherChanges}};
+    return {modelChange: {change: {changeType: ChangeType.Operations, operations: thisChanges}}, 
+            otherChange: {change: {changeType: ChangeType.Operations, operations: otherChanges}}};
   }
 
-  applyOperation(op: CountOperation) {
+  multiIncrementOp(value: number, actor: string): CountOperation {
+    const from = this.model.version.get(actor) || 0;
+    return CountOperation.newMultiIncrement(value, actor, from, from + 1);
+  }
+
+  incrementOp(actor: string): CountOperation {
+    const from = this.model.version.get(actor) || 0;
+    return CountOperation.newIncrement(actor, from);
+  }
+
+  applyOperation({operation}: CountOperation) {
     let value: number;
-    if (op.version.from !== (this.model.version.get(op.actor) || 0)) {
+    if (operation.version.from !== (this.model.version.get(operation.actor) || 0)) {
       return false;
     }
-    if (op.version.to <= op.version.from) {
+    if (operation.version.to <= operation.version.from) {
       return false;
     }
-    if (op.type === CountOpTypes.MultiIncrement) {
-      if (op.value < 0) {
+    if (operation.type === CountOpTypes.MultiIncrement) {
+      if (operation.value < 0) {
         return false;
       }
-      value = (this.model.values.get(op.actor) || 0) + op.value;
+      value = (this.model.values.get(operation.actor) || 0) + operation.value;
     } else {
-      value = (this.model.values.get(op.actor) || 0) + 1;
+      value = (this.model.values.get(operation.actor) || 0) + 1;
     }
 
-    this.model.values.set(op.actor, value);
-    this.model.version.set(op.actor, op.version.to);
+    this.model.values.set(operation.actor, value);
+    this.model.version.set(operation.actor, operation.version.to);
     return true;
   }
 
-  getData() {
+  getData(): CountData {
     return this.model;
   }
 

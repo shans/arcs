@@ -13,6 +13,9 @@ export type VersionMap = Map<string, number>;
 export class CRDTError extends Error {
 }
 
+export interface Operation<T> {}
+export interface Data<T> {}
+
 // A CRDT model is parameterized by:
 //  - the operations that can be applied
 //  - the internal data representation of the model
@@ -25,14 +28,18 @@ export class CRDTError extends Error {
 //  - apply an operation. This might fail (e.g. if the operation is out-of-order), in which case
 //    applyOperation() will return false.
 //  - report on internal data
-//  - report on the particle's view of the data.
 //
 // It is possible that two models can't merge. For example, they may have had divergent operations apply.
 // This is a serious error and will result in merge throwing a CRDTError.
-export interface CRDTModel<Ops, Data, ConsumerType> {
-  merge(other: CRDTModel<Ops, Data, ConsumerType>): {modelChange: CRDTChange<Ops, Data>, otherChange: CRDTChange<Ops, Data>};
-  applyOperation(op: Ops): boolean;
-  getData(): Data;
+export interface CRDTModel<T> {
+  merge(other: CRDTModel<T>): {modelChange: CRDTChange<T>, otherChange: CRDTChange<T>};
+  applyOperation(op: Operation<T>): boolean;
+  getData(): Data<T>;
+}
+
+//
+//  - report on the particle's view of the data.
+interface ConsumableCRDTModel<T, ConsumerType> extends CRDTModel<T> {
   getParticleView(): ConsumerType;
 }
 
@@ -44,7 +51,6 @@ export interface CRDTModel<Ops, Data, ConsumerType> {
 // A CRDT Change is parameterized by the operations that can be represented, and the data representation
 // of the model.
 export enum ChangeType {Operations, Model}
-export type CRDTChange<Ops, Data> = {changeType: ChangeType.Operations, operations: Ops[]} | {changeType: ChangeType.Model, modelPostChange: Data};
-
-
-
+export interface CRDTChange<T> {
+  change: {changeType: ChangeType.Operations, operations: Operation<T>[]} | {changeType: ChangeType.Model, modelPostChange: Data<T>};
+}
