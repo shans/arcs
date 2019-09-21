@@ -36,6 +36,7 @@ import {Mutex} from './mutex.js';
 import {Dictionary} from './hot.js';
 import {VolatileMemory, VolatileStorageDriverProvider} from './storageNG/drivers/volatile.js';
 import {DriverFactory} from './storageNG/drivers/driver-factory.js';
+import {StorageKey} from './storageNG/storage-key.js';
 
 export type ArcOptions = Readonly<{
   id: Id;
@@ -43,7 +44,7 @@ export type ArcOptions = Readonly<{
   pecFactories?: PecFactory[];
   slotComposer?: SlotComposer;
   loader: Loader;
-  storageKey?: string;
+  storageKey?: string | StorageKey;
   storageProviderFactory?: StorageProviderFactory;
   speculative?: boolean;
   innerArc?: boolean;
@@ -79,7 +80,7 @@ export class Arc {
   private readonly storesById = new Map<string, StorageProviderBase>();
   // storage keys for referenced handles
   private storageKeys: Dictionary<string> = {};
-  public readonly storageKey?: string;
+  public readonly storageKey?: string | StorageKey;
   storageProviderFactory: StorageProviderFactory;
   // Map from each store to a set of tags. public for debug access
   public readonly storeTags = new Map<StorageProviderBase, Set<string>>();
@@ -386,7 +387,12 @@ ${this.activeRecipe.toString()}`;
   // contents of the serialized arc before persisting.
   async persistSerialization(serialization: string): Promise<void> {
     const storage = this.storageProviderFactory;
-    const key = storage.parseStringAsKey(this.storageKey).childKeyForArcInfo();
+    let key;
+    if (typeof this.storageKey === 'string') {
+      key = storage.parseStringAsKey(this.storageKey).childKeyForArcInfo();
+    } else {
+      key = this.storageKey.childKeyForArcInfo();
+    }
     const arcInfoType = new ArcType();
     const store = await storage.connectOrConstruct('store', arcInfoType, key.toString()) as SingletonStorageProvider;
     store.referenceMode = false;
@@ -652,7 +658,7 @@ ${this.activeRecipe.toString()}`;
     }
   }
 
-  async createStore(type: Type, name?: string, id?: string, tags?: string[], storageKey?: string): Promise<StorageProviderBase> {
+  async createStore(type: Type, name?: string, id?: string, tags?: string[], storageKey?: string | StorageKey): Promise<StorageProviderBase> {
     assert(type instanceof Type, `can't createStore with type ${type} that isn't a Type`);
 
     if (type instanceof RelationType) {
@@ -663,11 +669,12 @@ ${this.activeRecipe.toString()}`;
       id = this.generateID().toString();
     }
 
-    if (storageKey == undefined && this.storageKey) {
-      storageKey =
-          this.storageProviderFactory.parseStringAsKey(this.storageKey)
-              .childKeyForHandle(id)
-              .toString();
+    if (storageKey == undefined) {
+      if (typeof this.storageKey === 'string') {
+        storageKey = this.storageProviderFactory.parseStringAsKey(this.storageKey).childKeyForHandle(id).toString();
+      } else if (this.storageKey) {
+        storageKey = this.storageKey.childKeyForHandle(id);
+      }
     }
 
     // TODO(sjmiles): use `volatile` for volatile stores
@@ -676,12 +683,17 @@ ${this.activeRecipe.toString()}`;
       storageKey = 'volatile';
     }
 
-    const store = await this.storageProviderFactory.construct(id, type, storageKey);
-    assert(store, `failed to create store with id [${id}]`);
-    store.name = name;
+    if (typeof storageKey === 'string') {
+      const store = await this.storageProviderFactory.construct(id, type, storageKey);
+      assert(store, `failed to create store with id [${id}]`);
+      store.name = name;
 
-    this._registerStore(store, tags);
-    return store;
+      this._registerStore(store, tags);
+      return store;
+    } else {
+      // XXX
+      return null;
+    }
   }
 
   _registerStore(store: StorageProviderBase, tags?: string[]): void {

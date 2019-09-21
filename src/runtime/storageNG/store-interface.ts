@@ -47,12 +47,11 @@ export abstract class ActiveStore<T extends CRDTTypeRecord> implements StoreInte
   readonly mode: StorageMode;
   modelConstructor: new () => CRDTModel<T>;
 
-  constructor(storageKey: StorageKey, exists: Exists, type: Type, mode: StorageMode, modelConstructor: new () => CRDTModel<T>) {
+  constructor(storageKey: StorageKey, exists: Exists, type: Type, mode: StorageMode) {
     this.storageKey = storageKey;
     this.exists = exists;
     this.type = type;
     this.mode = mode;
-    this.modelConstructor = modelConstructor;
   }
   
   async idle() {

@@ -17,7 +17,7 @@ import {DirectStore} from './direct-store.js';
 import {StorageKey} from './storage-key.js';
 import {VersionMap, CRDTModel, CRDTTypeRecord} from '../crdt/crdt.js';
 import {Exists} from './drivers/driver-factory.js';
-import {Type} from '../type.js';
+import {Type, CollectionType, ReferenceType} from '../type.js';
 import {Producer, Consumer, Runnable, Dictionary} from '../hot.js';
 import {PropagatedException} from '../arc-exceptions.js';
 
@@ -111,11 +111,17 @@ export class ReferenceModeStore<Entity extends Referenceable, S extends Dictiona
   static async construct<Entity extends Referenceable, S extends Dictionary<Referenceable>, C extends Dictionary<Referenceable>,
                          ReferenceContainer extends CRDTSingletonTypeRecord<Reference> | CRDTCollectionTypeRecord<Reference>,
                          Container extends CRDTSingletonTypeRecord<Entity> | CRDTCollectionTypeRecord<Entity>>(
-      backingKey: StorageKey, storageKey: StorageKey, exists: Exists, type: Type, backingConstructor: new () => CRDTModel<CRDTEntityTypeRecord<S, C>>,
-      referenceConstructor: new () => CRDTModel<ReferenceContainer>, modelConstructor: new () => CRDTModel<Container>) {
-    const result = new ReferenceModeStore<Entity, S, C, ReferenceContainer, Container>(storageKey, exists, type, StorageMode.ReferenceMode, modelConstructor);
-    result.backingStore = await BackingStore.construct(backingKey, exists, type, StorageMode.Backing, backingConstructor);
-    result.containerStore = await DirectStore.construct(storageKey, exists, type, StorageMode.Direct, referenceConstructor);
+      backingKey: StorageKey, storageKey: StorageKey, exists: Exists, type: Type, backingConstructor: new () => CRDTModel<CRDTEntityTypeRecord<S, C>>) {
+    const result = new ReferenceModeStore<Entity, S, C, ReferenceContainer, Container>(storageKey, exists, type, StorageMode.ReferenceMode);
+    result.backingStore = await BackingStore.construct(backingKey, exists, type.getContainedType(), StorageMode.Backing, backingConstructor);
+    let refType;
+    if (type.isCollectionType()) {
+      refType = new CollectionType(new ReferenceType(type.getContainedType()));
+    } else {
+      // TODO(shans) probably need a singleton type here now.
+      refType = new ReferenceType(type.getContainedType());
+    }
+    result.containerStore = await DirectStore.construct(storageKey, exists, type, StorageMode.Direct);
     result.registerStoreCallbacks();
     return result;
   }

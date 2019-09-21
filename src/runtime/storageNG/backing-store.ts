@@ -61,7 +61,7 @@ export class BackingStore<T extends CRDTTypeRecord>  {
   }
 
   private async setupStore(muxId: string): Promise<{type: 'record', store: DirectStore<T>, id: number}> {
-    const store = await DirectStore.construct(this.storageKey.childWithComponent(muxId), this.exists, this.type, this.mode, this.modelConstructor);
+    const store = await DirectStore.construct<T>(this.storageKey.childWithComponent(muxId), this.exists, this.type, this.mode);
     const id = store.on(msg => this.processStoreCallback(muxId, msg));
     const record: StoreRecord<T> = {store, id, type: 'record'};
     this.stores[muxId] = record;
