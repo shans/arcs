@@ -167,7 +167,7 @@ export type StoreInfo = {
 
   /** Trust tags claimed by this data store. */
   readonly claims?: ClaimIsTag[];
-  
+
   readonly versionToken?: string;
   readonly model?: {};
 };

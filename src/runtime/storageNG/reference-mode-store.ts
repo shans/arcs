@@ -23,11 +23,7 @@ import {PropagatedException} from '../arc-exceptions.js';
 import {Store} from './store.js';
 import {noAwait} from '../util.js';
 
-<<<<<<< HEAD
 // ReferenceMode store uses an expanded notion of Reference that also includes a version. This allows stores to block on
-=======
-// ReferenceMode store uses an expanded notion of Reference that also includes a version. This allows stores to block on
->>>>>>> Complete plumbing of tokens
 // receiving an update to contained Entities, which keeps remote versions of the store in sync with each other.
 export type Reference = {id: string, storageKey: StorageKey, version: VersionMap};
 export class ReferenceCollection extends CRDTCollection<Reference> {}
