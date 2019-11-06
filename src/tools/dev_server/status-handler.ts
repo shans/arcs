@@ -16,8 +16,7 @@ import {ExplorerProxy} from './explorer-proxy.js';
  *
  * Very simple at the moment, will likely grow as we add features.
  */
-// tslint:disable-next-line no-any
-export function status(proxy: ExplorerProxy): any {
+export function status(proxy: ExplorerProxy) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (req.path !== '/status') {
       return next();
