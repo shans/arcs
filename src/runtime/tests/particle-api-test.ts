@@ -27,6 +27,7 @@ import {Flags} from '../flags.js';
 import {StorageProxy} from '../storageNG/storage-proxy.js';
 import {unifiedHandleFor} from '../handle.js';
 import {DirectStore} from '../storageNG/direct-store.js';
+import {RamDiskStorageDriverProvider} from '../storageNG/drivers/ramdisk.js';
 
 class ResultInspector {
   private readonly _arc: Arc;
@@ -254,7 +255,7 @@ describe('particle-api', () => {
     assert.deepStrictEqual(values, [{value: 'two'}]);
   });
 
-  it.only('contains a constructInnerArc call', async () => {
+  it('contains a constructInnerArc call', async () => {
     const arc = await loadFilesIntoNewArc({
       manifest: `
         schema Result
@@ -389,6 +390,9 @@ describe('particle-api', () => {
   });
 
   it('can load a recipe referencing a manifest store', async () => {
+    RamDiskStorageDriverProvider.register();
+    const nobType = Flags.useNewStorageStack ? '![NobIdStore {Text nobId}]' : 'NobIdStore {Text nobId}';
+    const nobData = Flags.useNewStorageStack ? '{"root": {"values": {"nid": {"value": {"id": "nid", "rawData": {"nobId": "12345"}}, "version": {"u": 1}}}, "version": {"u": 1}}, "locations": {}}' : '[{"nobId": "12345"}]';
     const arc = await loadFilesIntoNewArc({
       manifest: `
         schema Result
@@ -417,10 +421,10 @@ describe('particle-api', () => {
                   schema Result
                     Text value
 
-                  store NobId of NobIdStore {Text nobId} in NobIdJson
+                  store NobId of ${nobType} in NobIdJson
                    resource NobIdJson
                      start
-                     [{"nobId": "12345"}]
+                     ${nobData}
 
                    particle PassThrough in 'pass-through.js'
                      in NobIdStore {Text nobId} nobId
@@ -454,7 +458,7 @@ describe('particle-api', () => {
             setHandles(handles) {
               handles.get('a').get().then(resultA => {
                 handles.get('nobId').get().then(resultNob => {
-                  if (resultNob.nobId === '12345') {
+                  if (resultNob && resultNob.nobId === '12345') {
                     handles.get('b').set(resultA);
                   }
                 })
@@ -686,6 +690,7 @@ describe('particle-api', () => {
   });
 
   it('multiplexing', async () => {
+    const addFunc = Flags.useNewStorageStack ? 'add' : 'store';
     const arc = await loadFilesIntoNewArc({
       manifest: `
         schema Result
@@ -734,15 +739,15 @@ describe('particle-api', () => {
                         b -> handle2
                   \`);
                   inHandle.set(input);
-                  this.resHandle.store(new this.resHandle.entityClass({value: 'done'}));
+                  this.resHandle.${addFunc}(new this.resHandle.entityClass({value: 'done'}));
                 } catch (e) {
-                  this.resHandle.store(new this.resHandle.entityClass({value: e}));
+                  this.resHandle.${addFunc}(new this.resHandle.entityClass({value: e}));
                 }
               }
             }
             async onHandleUpdate(handle, update) {
               if (handle.name === 'the-out') {
-                this.resHandle.store(update.data);
+                this.resHandle.${addFunc}(update.data);
               }
             }
           }
