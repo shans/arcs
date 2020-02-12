@@ -20,6 +20,7 @@ import {collectionHandleForTest, singletonHandleForTest} from '../testing/handle
 import {Entity} from '../entity.js';
 import {Flags} from '../flags.js';
 import {VolatileStorageKey} from '../storageNG/drivers/volatile.js';
+import {ReferenceModeStorageKey} from '../storageNG/reference-mode-storage-key.js';
 import {Store} from '../storageNG/store.js';
 import {Exists} from '../storageNG/drivers/driver.js';
 import {Reference} from '../reference.js';
@@ -212,7 +213,7 @@ describe('references', () => {
     assert.deepStrictEqual(values, [{value: 'val1'}, {value: 'val2'}]);
   });
 
-  it('exposes a reference API to particles', async () => {
+  it.only('exposes a reference API to particles', async () => {
     const loader = new Loader(null, {
       './manifest': `
         schema Result
@@ -250,7 +251,9 @@ describe('references', () => {
     });
 
     const manifest = await Manifest.load('./manifest', loader);
-    const arc = new Arc({id: Id.fromString('test:0'), loader, context: manifest});
+    const id = Id.fromString('test:0');
+    const sk = new ReferenceModeStorageKey(new VolatileStorageKey(id, 'a'), new VolatileStorageKey(id, 'b'));
+    const arc = new Arc({id, loader, context: manifest, storageKey: sk});
 
     const recipe = manifest.recipes[0];
     assert.isTrue(recipe.normalize());
@@ -258,6 +261,7 @@ describe('references', () => {
     await arc.instantiate(recipe);
 
     const inputStore = arc._stores[0];
+    console.log(inputStore.storageKey);
     const handle = await singletonHandleForTest(arc, inputStore);
     const entity = await handle.setFromData({value: 'what a result!'});
     await arc.idle;
