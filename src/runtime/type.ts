@@ -126,8 +126,8 @@ export abstract class Type {
     return this instanceof ReferenceType;
   }
 
-  isMuxType(): this is MuxType<Type> {
-    return this instanceof MuxType;
+  isMuxType(): this is MuxType<EntityType> {
+    return this instanceof MuxType && this.innerType instanceof  EntityType;
   }
 
   isTupleType(): this is TupleType {

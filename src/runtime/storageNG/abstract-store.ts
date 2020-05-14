@@ -13,34 +13,38 @@ import {Type} from '../type.js';
 import {StorageKey} from './storage-key.js';
 import {PropagatedException} from '../arc-exceptions.js';
 import {ClaimIsTag} from '../particle-claim.js';
-import {SingletonInterfaceStore, SingletonEntityStore, SingletonReferenceStore, CollectionEntityStore, CollectionReferenceStore} from './storage-ng.js';
-import {ActiveStore} from './store-interface.js';
+import {SingletonInterfaceStore, SingletonEntityStore, SingletonReferenceStore, CollectionEntityStore, CollectionReferenceStore, CRDTMuxEntity, MuxEntityType, NonMuxType, TypeToCRDTTypeRecord} from './storage-ng.js';
+import {ActiveStore, ActiveMuxer} from './store-interface.js';
 import {CRDTTypeRecord} from '../crdt/crdt.js';
+import { DirectStoreMuxer } from './direct-store-muxer.js';
 
-export function isSingletonInterfaceStore(store: AbstractStore): store is SingletonInterfaceStore {
+export function isSingletonInterfaceStore(store: AbstractStore<Type>): store is SingletonInterfaceStore {
   return (store.type.isSingleton && store.type.getContainedType().isInterface);
 }
 
-export function isSingletonEntityStore(store: AbstractStore): store is SingletonEntityStore {
+export function isSingletonEntityStore(store: AbstractStore<Type>): store is SingletonEntityStore {
   return (store.type.isSingleton && store.type.getContainedType().isEntity);
 }
 
-export function isCollectionEntityStore(store: AbstractStore): store is CollectionEntityStore {
+export function isCollectionEntityStore(store: AbstractStore<Type>): store is CollectionEntityStore {
   return (store.type.isCollection && store.type.getContainedType().isEntity);
 }
 
-export function isSingletonReferenceStore(store: AbstractStore): store is SingletonReferenceStore {
+export function isSingletonReferenceStore(store: AbstractStore<Type>): store is SingletonReferenceStore {
   return (store.type.isSingleton && store.type.getContainedType().isReference);
 }
 
-export function isCollectionReferenceStore(store: AbstractStore): store is CollectionReferenceStore {
+export function isCollectionReferenceStore(store: AbstractStore<Type>): store is CollectionReferenceStore {
   return (store.type.isCollection && store.type.getContainedType().isReference);
 }
 
 export function entityHasName(name: string) {
-  return (store: AbstractStore) =>
+  return (store: AbstractStore<Type>) =>
     store.type.getContainedType().isEntity && store.type.getContainedType().getEntitySchema().names.includes(name);
 }
+
+export type ToActiveStore<T extends Type>
+  = T extends MuxEntityType ? ActiveMuxer<TypeToCRDTTypeRecord<T>> : ActiveStore<T, TypeToCRDTTypeRecord<T>>;
 
 /**
  * This is a temporary interface used to unify old-style stores (storage/StorageProviderBase) and new-style stores (storageNG/Store).
@@ -57,7 +61,7 @@ export function entityHasName(name: string) {
  * Once the old-style stores are deleted, this class can be merged into the new
  * Store class.
  */
-export abstract class AbstractStore implements Comparable<AbstractStore> {
+export abstract class AbstractStore<T extends Type> implements Comparable<AbstractStore<T>> {
   // TODO: Once the old storage stack is gone, this should only be of type
   // StorageKey, and can be moved into StoreInfo.
   abstract storageKey: StorageKey;
@@ -80,7 +84,7 @@ export abstract class AbstractStore implements Comparable<AbstractStore> {
   get description() { return this.storeInfo.description; }
   get claims() { return this.storeInfo.claims; }
 
-  abstract activate(): Promise<ActiveStore<CRDTTypeRecord>>;
+  abstract activate(): Promise<ToActiveStore<T>>;
 
   // TODO: Delete this method when the old-style storage is deleted.
   reportExceptionInHost(exception: PropagatedException): void {
@@ -88,7 +92,7 @@ export abstract class AbstractStore implements Comparable<AbstractStore> {
     throw exception;
   }
 
-  _compareTo(other: AbstractStore): number {
+  _compareTo(other: AbstractStore<T>): number {
     let cmp: number;
     cmp = compareStrings(this.name, other.name);
     if (cmp !== 0) return cmp;

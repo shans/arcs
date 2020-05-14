@@ -14,10 +14,11 @@ import {DriverFactory} from './drivers/driver-factory.js';
 import {Driver} from './drivers/driver.js';
 import {ActiveStore, ProxyCallback, ProxyMessageType, ProxyMessage, StoreConstructorOptions} from './store-interface.js';
 import {noAwait} from '../util.js';
+import { Type } from '../type.js';
 
 export enum DirectStoreState {Idle = 'Idle', AwaitingResponse = 'AwaitingResponse', AwaitingResponseDirty = 'AwaitingResponseDirty', AwaitingDriverModel = 'AwaitingDriverModel'}
 
-export class DirectStore<T extends CRDTTypeRecord> extends ActiveStore<T> {
+export class DirectStore<T extends CRDTTypeRecord> extends ActiveStore<Type, T> {
   localModel: CRDTModel<T>;
   callbacks = new Map<number, ProxyCallback<T>>();
   driver: Driver<T['data']>;
@@ -31,7 +32,7 @@ export class DirectStore<T extends CRDTTypeRecord> extends ActiveStore<T> {
   /*
    * This class should only ever be constructed via the static construct method
    */
-  private constructor(options: StoreConstructorOptions<T>) {
+  private constructor(options: StoreConstructorOptions<Type>) {
     super(options);
   }
 
@@ -75,7 +76,7 @@ export class DirectStore<T extends CRDTTypeRecord> extends ActiveStore<T> {
     }
   }
 
-  static async construct<T extends CRDTTypeRecord>(options: StoreConstructorOptions<T>) {
+  static async construct<T extends CRDTTypeRecord>(options: StoreConstructorOptions<Type>) {
     const me = new DirectStore<T>(options);
     me.localModel = new (options.type.crdtInstanceConstructor<T>())();
     me.driver = await DriverFactory.driverInstance(options.storageKey, options.exists);

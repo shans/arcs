@@ -13,7 +13,7 @@ import {ArcDevtoolsChannel} from './abstract-devtools-channel.js';
 import {Manifest} from '../runtime/manifest.js';
 import {Type} from '../runtime/type.js';
 import {StorageKey} from '../runtime/storageNG/storage-key.js';
-import {Store} from '../runtime/storageNG/store.js';
+import {Store, ActiveStore} from '../runtime/storageNG/store.js';
 import {AbstractStore} from '../runtime/storageNG/abstract-store.js';
 
 type Result = {
@@ -60,7 +60,7 @@ export class ArcStoresFetcher {
   }
 
   private async listStores() {
-    const find = (manifest: Manifest): [AbstractStore, string[]][] => {
+    const find = (manifest: Manifest): [AbstractStore<Type>, string[]][] => {
       let tags = [...manifest.storeTags];
       if (manifest.imports) {
         manifest.imports.forEach(imp => tags = tags.concat(find(imp)));
@@ -73,7 +73,7 @@ export class ArcStoresFetcher {
     };
   }
 
-  private async digestStores(stores: [AbstractStore, string[] | Set<string>][]) {
+  private async digestStores(stores: [AbstractStore<Type>, string[] | Set<string>][]) {
     const result: Result[] = [];
     for (const [store, tags] of stores) {
       result.push({
@@ -90,7 +90,7 @@ export class ArcStoresFetcher {
   }
 
   // tslint:disable-next-line: no-any
-  private async dereference(store: AbstractStore): Promise<any> {
+  private async dereference(store: AbstractStore<Type>): Promise<any> {
     // TODO(shanestephens): Replace this with handle-based reading
     if (store instanceof Store) {
       // tslint:disable-next-line: no-any

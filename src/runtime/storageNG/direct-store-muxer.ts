@@ -13,26 +13,28 @@ import {ProxyMessage, ProxyCallback} from './store.js';
 import {StorageKey} from './storage-key.js';
 import {DirectStore} from './direct-store.js';
 import {Dictionary} from '../hot.js';
-import {StoreConstructorOptions, StorageCommunicationEndpointProvider} from './store-interface.js';
+import {StoreConstructorOptions, StorageCommunicationEndpointProvider, ActiveMuxer} from './store-interface.js';
 import {assert} from '../../platform/assert-web.js';
 import {noAwait} from '../util.js';
 import {PropagatedException, reportSystemException} from '../arc-exceptions.js';
 import {ChannelConstructor} from '../channel-constructor.js';
+import { MuxEntityType } from './storage-ng.js';
 
 type StoreRecord<T extends CRDTTypeRecord> = {type: 'record', store: DirectStore<T>, id: number} | {type: 'pending', promise: Promise<{type: 'record', store: DirectStore<T>, id: number}>};
 /**
  * A store that allows multiple CRDT models to be stored as sub-keys of a single storageKey location.
  */
-export class DirectStoreMuxer<T extends CRDTTypeRecord> implements StorageCommunicationEndpointProvider<T> {
-
+export class DirectStoreMuxer<T extends CRDTTypeRecord> extends ActiveMuxer<T> implements StorageCommunicationEndpointProvider<T> {
+  versionToken: string;
   storageKey: StorageKey;
 
   private readonly stores: Dictionary<StoreRecord<T>> = {};
   private readonly callbacks = new Map<number, ProxyCallback<T>>();
   private nextCallbackId = 1;
-  private readonly options: StoreConstructorOptions<T>;
+  private readonly options: StoreConstructorOptions<MuxEntityType>;
 
-  constructor(options: StoreConstructorOptions<T>) {
+  constructor(options: StoreConstructorOptions<MuxEntityType>) {
+    super(options);
     this.storageKey = options.storageKey;
     this.options = options;
   }
@@ -84,7 +86,7 @@ export class DirectStoreMuxer<T extends CRDTTypeRecord> implements StorageCommun
     await store.onProxyMessage({...message, id});
   }
 
-  static async construct<T extends CRDTTypeRecord>(options: StoreConstructorOptions<T>) {
+  static async construct<T extends CRDTTypeRecord>(options: StoreConstructorOptions<MuxEntityType>) {
     return new DirectStoreMuxer<T>(options);
   }
 

@@ -19,6 +19,13 @@ import {ProxyMessageType} from '../store.js';
 import {assert} from '../../../platform/chai-web.js';
 import {CRDTSingleton} from '../../crdt/crdt-singleton.js';
 import {Entity} from '../../entity.js';
+import { ArcId } from '../../id.js';
+import { ReferenceModeStorageKey } from '../reference-mode-storage-key.js';
+import { VolatileStorageKey } from '../drivers/volatile.js';
+import { Loader } from '../../../platform/loader.js';
+import { TestVolatileMemoryProvider } from '../../testing/test-volatile-memory-provider.js';
+import { Runtime } from '../../runtime.js';
+
 
 describe('entity handle factory', () => {
   it('can produce entity handles upon request', async () => {
@@ -90,5 +97,51 @@ describe('entity handle factory', () => {
     recipe.handles[1].type.maybeEnsureResolved();
     assert.instanceOf(recipe.handles[1].type, MuxType);
     assert.strictEqual((recipe.handles[1].type.resolvedType() as MuxType<EntityType>).innerType.entitySchema.name, 'Result');
+  });
+  it.only('little test I will name later', async () => {
+    const storageKeyPrefix = (arcId: ArcId) => new ReferenceModeStorageKey(new VolatileStorageKey(arcId, 'a'), new VolatileStorageKey(arcId, 'b'));
+    const loader = new Loader(null, {
+      './manifest': `
+        schema Result
+          value: Text
+
+        particle Dereferencer in 'dereferencer.js'
+          inResult: reads &Result
+          inResultData: reads #Result
+
+        recipe
+          handle0: create 'input:1'
+          handle1: create 'output:1'
+          Dereferencer
+            inResult: reads handle0
+            inResultData: reads handle1
+      `,
+      './dereferencer.js': `
+        defineParticle(({Particle}) => {
+          return class Dereferencer extends Particle {
+            setHandles(handles) {
+              this.entityHandleFactory = handles.get('inResultData');
+            }
+
+            async onHandleUpdate(handle, update) {
+              if (handle.name == 'inResult') {
+                await this.entityHandleFactory.getHandle(update.id);
+              }
+            }
+          }
+        });
+      `
+    });
+    const memoryProvider = new TestVolatileMemoryProvider();
+
+    const manifest = await Manifest.load('./manifest', loader, {memoryProvider});
+    const runtime = new Runtime({loader, context: manifest, memoryProvider});
+    const arc = runtime.newArc('test', storageKeyPrefix);
+    const recipe = manifest.recipes[0];
+
+    assert.isTrue(recipe.normalize());
+    assert.isTrue(recipe.isResolved());
+    await arc.instantiate(recipe);
+    await arc.idle;
   });
 });

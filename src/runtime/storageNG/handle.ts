@@ -23,6 +23,7 @@ import {ParticleSpec} from '../particle-spec.js';
 import {ChannelConstructor} from '../channel-constructor.js';
 import {Producer} from '../hot.js';
 import {CRDTEntityTypeRecord, EntityOperation, RawEntity, Identified} from '../crdt/crdt-entity.js';
+import { CRDTMuxEntity } from './storage-ng.js';
 
 export interface HandleOptions {
   keepSynced: boolean;
@@ -483,10 +484,10 @@ export class SingletonHandle<T> extends Handle<CRDTSingletonTypeRecord<Reference
 /**
  * A handle on an entity.
  */
-export class EntityHandle<T> extends Handle<CRDTEntityTypeRecord<Identified, Identified>> {
+export class EntityHandle<T> extends Handle<CRDTMuxEntity> {
   constructor(
     key: string,
-    storageProxy: StorageProxy<CRDTEntityTypeRecord<Identified, Identified>>,
+    storageProxy: StorageProxy<CRDTMuxEntity>,
     idGenerator: IdGenerator,
     particle: Particle,
     canRead: boolean,
