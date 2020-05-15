@@ -72,10 +72,14 @@ export interface StorageCommunicationEndpointProvider<T extends CRDTTypeRecord> 
   getStorageEndpoint(storageProxy: StorageProxy<T> | StorageProxyMuxer<T>): StorageCommunicationEndpoint<T>;
 }
 
+export interface AbstractActiveStore<T extends CRDTTypeRecord> {
+  versionToken: string;
+}
+
 // A representation of an active store. Subclasses of this class provide specific
 // behaviour as controlled by the provided StorageMode.
 export abstract class ActiveStore<T extends Type, U extends CRDTTypeRecord>
-    implements StoreInterface<U>, StorageCommunicationEndpointProvider<U> {
+    implements StoreInterface<U>, StorageCommunicationEndpointProvider<U>, AbstractActiveStore<U> {
   readonly storageKey: StorageKey;
   exists: Exists;
   readonly type: T;
@@ -155,7 +159,7 @@ export abstract class ActiveStore<T extends Type, U extends CRDTTypeRecord>
   }
 }
 
-export abstract class ActiveMuxer<T extends CRDTTypeRecord> implements StorageCommunicationEndpointProvider<T> {
+export abstract class ActiveMuxer<T extends CRDTTypeRecord> implements StorageCommunicationEndpointProvider<T>, AbstractActiveStore<T> {
   abstract versionToken: string;
   readonly baseStore: AbstractStore<MuxEntityType>;
 

@@ -93,8 +93,7 @@ export class ArcStoresFetcher {
   private async dereference(store: AbstractStore<Type>): Promise<any> {
     // TODO(shanestephens): Replace this with handle-based reading
     if (store instanceof Store) {
-      // tslint:disable-next-line: no-any
-      const crdtData = await (await (store as Store<any>).activate()).serializeContents();
+      const crdtData = await (await store.activate()).serializeContents();
       if (crdtData.values) {
         if (Object.values(crdtData.values).length === 1) {
           // Single value, extract the value only (discard the version).

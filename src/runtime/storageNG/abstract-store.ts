@@ -14,7 +14,7 @@ import {StorageKey} from './storage-key.js';
 import {PropagatedException} from '../arc-exceptions.js';
 import {ClaimIsTag} from '../particle-claim.js';
 import {SingletonInterfaceStore, SingletonEntityStore, SingletonReferenceStore, CollectionEntityStore, CollectionReferenceStore, CRDTMuxEntity, MuxEntityType, NonMuxType, TypeToCRDTTypeRecord} from './storage-ng.js';
-import {ActiveStore, ActiveMuxer} from './store-interface.js';
+import {ActiveStore, ActiveMuxer, AbstractActiveStore} from './store-interface.js';
 import {CRDTTypeRecord} from '../crdt/crdt.js';
 import { DirectStoreMuxer } from './direct-store-muxer.js';
 
@@ -44,7 +44,9 @@ export function entityHasName(name: string) {
 }
 
 export type ToActiveStore<T extends Type>
-  = T extends MuxEntityType ? ActiveMuxer<TypeToCRDTTypeRecord<T>> : ActiveStore<T, TypeToCRDTTypeRecord<T>>;
+  = T extends MuxEntityType ? ActiveMuxer<TypeToCRDTTypeRecord<T>> : 
+  (T extends NonMuxType ? ActiveStore<T, TypeToCRDTTypeRecord<T>> :
+  AbstractActiveStore<TypeToCRDTTypeRecord<T>>);
 
 /**
  * This is a temporary interface used to unify old-style stores (storage/StorageProviderBase) and new-style stores (storageNG/Store).
@@ -67,7 +69,7 @@ export abstract class AbstractStore<T extends Type> implements Comparable<Abstra
   abstract storageKey: StorageKey;
   abstract versionToken: string;
   abstract referenceMode: boolean;
-  abstract type: Type;
+  abstract type: T;
 
   storeInfo: StoreInfo;
 
@@ -84,7 +86,7 @@ export abstract class AbstractStore<T extends Type> implements Comparable<Abstra
   get description() { return this.storeInfo.description; }
   get claims() { return this.storeInfo.claims; }
 
-  abstract activate(): Promise<ToActiveStore<T>>;
+  abstract activate(): Promise<AbstractActiveStore<TypeToCRDTTypeRecord<T>>>;
 
   // TODO: Delete this method when the old-style storage is deleted.
   reportExceptionInHost(exception: PropagatedException): void {

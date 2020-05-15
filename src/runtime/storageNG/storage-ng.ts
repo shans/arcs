@@ -127,7 +127,7 @@ export type TypeToCRDTTypeRecord<T extends Type>
   (T extends CollectionReferenceType ? CRDTReferenceCollection :
   (T extends SingletonInterfaceType ? CRDTInterfaceSingleton : 
   (T extends MuxEntityType ? CRDTMuxEntity :
-  never)))));
+  CRDTTypeRecord)))));
 
 export type CRDTTypeRecordToType<T extends CRDTTypeRecord>
   = T extends CRDTEntitySingleton ? SingletonEntityType :
@@ -203,6 +203,6 @@ export function handleForActiveStore<T extends Type, U extends CRDTTypeRecord>(
   }
 }
 
-export async function handleForStore<T extends Type, U extends CRDTTypeRecord>(store: Store<U>, arc: ArcLike, options?: HandleOptions): Promise<ToHandle<T, ToActiveStore<T, U>>> {
+export async function handleForStore<T extends Type, U extends CRDTTypeRecord>(store: Store<U>, arc: ArcLike, options?: HandleOptions): Promise<ToHandle<ToActive<ToStore<T>>>> {
   return handleForActiveStore(await store.activate(), arc, options) ;
 }

@@ -86,16 +86,16 @@ export class Arc implements ArcInterface {
   public readonly _loader: Loader;
   private readonly dataChangeCallbacks = new Map<object, Runnable>();
   // All the stores, mapped by store ID
-  private readonly storesById = new Map<string, AbstractStore>();
-  private readonly storesByKey = new Map<string | StorageKey, AbstractStore>();
+  private readonly storesById = new Map<string, AbstractStore<Type>>();
+  private readonly storesByKey = new Map<string | StorageKey, AbstractStore<Type>>();
   // storage keys for referenced handles
   private storageKeys: Dictionary<StorageKey> = {};
   public readonly storageKey?:  StorageKey;
   private readonly capabilitiesResolver?: CapabilitiesResolver;
   // Map from each store to a set of tags. public for debug access
-  public readonly storeTags = new Map<AbstractStore, Set<string>>();
+  public readonly storeTags = new Map<AbstractStore<Type>, Set<string>>();
   // Map from each store to its description (originating in the manifest).
-  private readonly storeDescriptions = new Map<AbstractStore, string>();
+  private readonly storeDescriptions = new Map<AbstractStore<Type>, string>();
   private waitForIdlePromise: Promise<void> | null;
   private readonly inspectorFactory?: ArcInspectorFactory;
   public readonly inspector?: ArcInspector;
@@ -104,7 +104,7 @@ export class Arc implements ArcInterface {
 
   readonly id: Id;
   readonly idGenerator: IdGenerator = IdGenerator.newSession();
-  loadedParticleInfo = new Map<string, {spec: ParticleSpec, stores: Map<string, AbstractStore>}>();
+  loadedParticleInfo = new Map<string, {spec: ParticleSpec, stores: Map<string, AbstractStore<Type>>}>();
   readonly peh: ParticleExecutionHost;
 
   // Volatile storage local to this Arc instance.
@@ -318,8 +318,8 @@ export class Arc implements ArcInterface {
     this.peh.instantiate(recipeParticle, info.stores, reinstantiate);
   }
 
-  async _getParticleInstantiationInfo(recipeParticle: Particle): Promise<{spec: ParticleSpec, stores: Map<string, AbstractStore>}> {
-    const info = {spec: recipeParticle.spec, stores: new Map<string, AbstractStore>()};
+  async _getParticleInstantiationInfo(recipeParticle: Particle): Promise<{spec: ParticleSpec, stores: Map<string, AbstractStore<Type>>}> {
+    const info = {spec: recipeParticle.spec, stores: new Map<string, AbstractStore<Type>>()};
     this.loadedParticleInfo.set(recipeParticle.id.toString(), info);
 
     // if supported, provide particle caching via a BlobUrl representing spec.implFile
@@ -332,7 +332,7 @@ export class Arc implements ArcInterface {
         const store = this.findStoreById(connection.handle.id);
         assert(store, `can't find store of id ${connection.handle.id}`);
         assert(info.spec.handleConnectionMap.get(name) !== undefined, 'can\'t connect handle to a connection that doesn\'t exist');
-        info.stores.set(name, store as AbstractStore);
+        info.stores.set(name, store as AbstractStore<Type>);
       }
     }
     return info;
@@ -354,7 +354,7 @@ export class Arc implements ArcInterface {
     return this.idGenerator.newChildId(this.id, component);
   }
 
-  get _stores(): AbstractStore[] {
+  get _stores(): AbstractStore<Type>[] {
     return [...this.storesById.values()];
   }
 
@@ -367,23 +367,26 @@ export class Arc implements ArcInterface {
                          speculative: true,
                          innerArc: this.isInnerArc,
                          inspectorFactory: this.inspectorFactory});
-    const storeMap: Map<AbstractStore, AbstractStore> = new Map();
+    const storeMap: Map<AbstractStore<Type>, AbstractStore<Type>> = new Map();
     for (const store of this._stores) {
-      const clone: AbstractStore = new Store(store.type, {
-        storageKey: new VolatileStorageKey(this.id, store.id),
-        exists: Exists.MayExist,
-        id: store.id
-      });
-      await (await clone.activate()).cloneFrom(await store.activate());
+      if (store instanceof Store) {
+        // TODO(alicej): Should we be able to clone a StoreMux as well?
+        const clone = new Store(store.type, {
+          storageKey: new VolatileStorageKey(this.id, store.id),
+          exists: Exists.MayExist,
+          id: store.id
+        });
+        await (await clone.activate()).cloneFrom(await store.activate());
 
-      storeMap.set(store, clone);
-      if (this.storeDescriptions.has(store)) {
-        arc.storeDescriptions.set(clone, this.storeDescriptions.get(store));
+        storeMap.set(store, clone);
+        if (this.storeDescriptions.has(store)) {
+          arc.storeDescriptions.set(clone, this.storeDescriptions.get(store));
+        }
       }
     }
 
     this.loadedParticleInfo.forEach((info, id) => {
-      const stores: Map<string, AbstractStore> = new Map();
+      const stores: Map<string, AbstractStore<Type>> = new Map();
       info.stores.forEach((store, name) => stores.set(name, storeMap.get(store)));
       arc.loadedParticleInfo.set(id, {spec: info.spec, stores});
     });

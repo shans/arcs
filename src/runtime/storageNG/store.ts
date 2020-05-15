@@ -15,7 +15,7 @@ import {StoreInterface, StorageMode, ActiveStore, ProxyMessageType, ProxyMessage
 import {AbstractStore, StoreInfo, ToActiveStore} from './abstract-store.js';
 import {ReferenceModeStorageKey} from './reference-mode-storage-key.js';
 import {Type} from '../type.js';
-import { MuxEntityType, SingletonEntityType, NonMuxType, SingletonInterfaceStore, CRDTTypeRecordToType, TypeToCRDTTypeRecord, CRDTMuxEntity } from './storage-ng.js';
+import { MuxEntityType, SingletonEntityType, NonMuxType, SingletonInterfaceStore, CRDTTypeRecordToType, TypeToCRDTTypeRecord, CRDTMuxEntity, CRDTEntitySingleton, NonMuxCRDTTypeRecord } from './storage-ng.js';
 
 export {
   ActiveStore,
@@ -72,13 +72,34 @@ export class Store<T extends CRDTTypeRecord> extends AbstractStore<CRDTTypeRecor
     return this.parsedVersionToken;
   }
 
-  async activate(): Promise<ActiveStore<T, TypeToCRDTTypeRecord<T>> {
+  async activate(): Promise<ActiveStore<CRDTTypeRecordToType<T>, T>> {
     let a : AbstractStore<Type>;
+    let aa : AbstractStore<MuxEntityType>;
     let b : Store<CRDTTypeRecord>;
     let c : StoreMuxer<CRDTMuxEntity>;
     a = b;
     a = c;
+    aa = b;
+    aa = c;
 
+    let d : ToActiveStore<Type>;
+    let e : ActiveStore<SingletonEntityType, CRDTEntitySingleton>
+    d = e
+    e = d
+
+    // what we have: 
+    //
+    // AbstractStore<Type>.activate -> ActiveStore
+    // AbstractStore<MuxEntityType>.activate -> ActiveMuxer
+    //
+    // Store.activate -> ActiveStore
+    // StoreMuxer.activate -> ActiveMuxer
+    //
+    //
+
+    // AbstractStore<Type>.activate => AbstractActiveStore
+    // AbstractStore<NonMuxType>.activate => ActiveStore (extends AbstractActiveStore)
+    // 
 
     if (this.activeStore) {
       return this.activeStore;
