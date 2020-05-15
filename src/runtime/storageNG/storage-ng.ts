@@ -144,7 +144,7 @@ export type CRDTTypeRecordToType<T extends CRDTTypeRecord>
 
 // export type ToHandle<T extends ToActiveStore<Type>> = T extends ActiveMuxEntityStore ? MuxEntityHandle : MuxEntityHandle;
 
-export type ToHandle<T extends Type, U extends ToActiveStore<T, TypeToCRDTTypeRecord<T>>>
+export type ToHandle<T extends Type, U extends ToActiveStore<T>>
   = U extends ActiveCollectionEntityStore ? CollectionEntityHandle :
    (U extends ActiveCollectionReferenceStore ? CollectionReferenceHandle :
    (U extends ActiveSingletonEntityStore ? SingletonEntityHandle :
@@ -176,10 +176,10 @@ export async function newHandle<T extends Type>(type: T, storageKey: StorageKey,
 }
 
 export function handleForActiveStore<T extends Type, U extends CRDTTypeRecord>(
-  store: ToActiveStore<T, U>,
+  store: ToActiveStore<T>,
   arc: ArcLike,
   options: HandleOptions = {}
-): ToHandle<T, ToActiveStore<T, U>> {
+): ToHandle<T, ToActiveStore<T>> {
   const type = options.type || store.baseStore.type;
   const storageKey = store.baseStore.storageKey.toString();
   const proxy = new StorageProxy<U>(store.baseStore.id, store, type, storageKey, options.ttl);
@@ -191,15 +191,15 @@ export function handleForActiveStore<T extends Type, U extends CRDTTypeRecord>(
   const generateID = arc.generateID ? () => arc.generateID().toString() : () => '';
   if (type instanceof MuxType) {
     const proxyMuxer = new StorageProxyMuxer<CRDTMuxEntity>(store, type, storageKey);
-    return new EntityHandleFactory(proxyMuxer) as ToHandle<T, ToActiveStore<T, U>>;
+    return new EntityHandleFactory(proxyMuxer) as ToHandle<T, ToActiveStore<T>>;
   }
 
   if (type instanceof SingletonType) {
     // tslint:disable-next-line: no-any
-    return new SingletonHandle(generateID(), proxy as any, idGenerator, particle, canRead, canWrite, name) as ToHandle<T, ActiveStore<SingletonType<Type>, T>>;
+    return new SingletonHandle(generateID(), proxy as any, idGenerator, particle, canRead, canWrite, name) as ToHandle<T, ActiveStore<T, TypeToCRDTTypeRecord<T>>>;
   } else {
     // tslint:disable-next-line: no-any
-    return new CollectionHandle(generateID(), proxy as any, idGenerator, particle, canRead, canWrite, name) as ToHandle<ToActiveStore<T, U>>;
+    return new CollectionHandle(generateID(), proxy as any, idGenerator, particle, canRead, canWrite, name) as ToHandle<ToActiveStore<T>>;
   }
 }
 
